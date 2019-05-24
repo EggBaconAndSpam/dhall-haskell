@@ -102,7 +102,7 @@ compilerDiagnostics path txt = handle ast
     missingImports (SourcedException src e) = do
       let _ = e :: MissingImports
       pure [Diagnostic {
-             _range = sourceToRange src
+             _range = sanitiseRange (sourceToRange src) txt
            , _severity = Just DsError
            , _source = Just defaultDiagnosticSource
            , _code = Nothing
@@ -113,7 +113,7 @@ compilerDiagnostics path txt = handle ast
       let _ = e :: TypeError Src X
           (TypeError ctx expr msg) = e
       pure [ Diagnostic {
-        _range = getSourceRange e
+        _range = sanitiseRange (getSourceRange e) txt
       , _severity = Just DsError
       , _source = Just defaultDiagnosticSource
       , _code = Nothing
@@ -194,3 +194,22 @@ errorFancyLength :: Text.Megaparsec.ShowErrorComponent e => Text.Megaparsec.Erro
 errorFancyLength = \case
   Text.Megaparsec.ErrorCustom a -> Text.Megaparsec.errorComponentLen a
   _             -> 1
+
+-- sanitise range to exclude surrounding whitespace
+-- makes sure that the resulting range is well-formed
+sanitiseRange :: Range -> Text -> Range
+sanitiseRange (Range l r) text = Range l (max l r')
+  where r' = trimEndPosition r text
+
+-- adjust a given position to exclude any trailing whitespace
+trimEndPosition :: Position -> Text -> Position
+trimEndPosition _ "" = Position 0 0
+trimEndPosition (Position line col) text =
+  let ls = T.lines text
+      ls' = take (line - 1) ls ++ [ T.take col (ls !! line ) ]  -- text truncated to position
+      lengths = map (T.length . T.stripEnd) ls'  -- line lengths after dropping trailing whitespace
+      lengths' = dropWhile (== 0) lengths  -- drop empty lines
+      line' = length lengths
+      col' | null lengths = 0  -- edge case when there aren't any non-whitespace characters
+           | otherwise = last lengths
+  in (Position line' col')
