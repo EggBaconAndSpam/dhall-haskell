@@ -53,7 +53,6 @@ tshow = T.pack . show
 defaultDiagnosticSource :: DiagnosticSource
 defaultDiagnosticSource = "dhall-lsp-server"
 
--- TODO: type errors span across whitespace after the expression
 -- TODO: don't use show for import msgs (requires alternative typeclass)
 -- TODO: file consisting with only comments shouldn't produce an error msg
 compilerDiagnostics :: FilePath -> Text -> IO [Diagnostic]
