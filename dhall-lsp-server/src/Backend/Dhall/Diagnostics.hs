@@ -25,6 +25,7 @@ import Dhall.Import(Imported(..), Cycle(..), ReferentiallyOpaque(..),
                      MissingFile, MissingEnvironmentVariable, MissingImports(..) )
 
 
+import Data.List (dropWhileEnd)
 import Data.Text (Text)
 import qualified Data.Text as T
 
@@ -202,13 +203,12 @@ sanitiseRange (Range l r) text = Range l (max l r')
 
 -- adjust a given position to exclude any trailing whitespace
 trimEndPosition :: Position -> Text -> Position
-trimEndPosition _ "" = Position 0 0
 trimEndPosition (Position line col) text =
-  let ls = T.lines text
-      ls' = take (line - 1) ls ++ [ T.take col (ls !! line ) ]  -- text truncated to position
+  let ls = T.lines text ++ [""]  -- 'lines' swallows empty last lines
+      ls' = take (line - 1) ls ++ [ T.take col (ls !! line) ]  -- text truncated to position
       lengths = map (T.length . T.stripEnd) ls'  -- line lengths after dropping trailing whitespace
-      lengths' = dropWhile (== 0) lengths  -- drop empty lines
-      line' = length lengths
+      lengths' = dropWhileEnd (== 0) lengths  -- drop empty lines
+      line' = length lengths'
       col' | null lengths = 0  -- edge case when there aren't any non-whitespace characters
-           | otherwise = last lengths
-  in (Position line' col')
+           | otherwise = last lengths'
+  in Position line' col'
