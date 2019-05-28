@@ -201,14 +201,33 @@ sanitiseRange :: Range -> Text -> Range
 sanitiseRange (Range l r) text = Range l (max l r')
   where r' = trimEndPosition r text
 
+-- Variants of T.lines and T.unlines that are inverses of one another.
+lines' :: Text -> [Text]
+lines' = T.split (=='\n')
+
+unlines' :: [Text] -> Text
+unlines' = T.intercalate "\n"
+
+-- Convert a (line,column) position into the corresponding character offset
+-- and back, such that the two are inverses of eachother.
+positionToOffset :: Text -> Position -> Int
+positionToOffset txt (Position line col) =
+    if line < length ls
+      then T.length . unlines' $ take line ls ++ [T.take col (ls !! line)]
+      else T.length txt  -- position lies outside txt
+  where
+    ls = lines' txt
+
+offsetToPosition :: Text -> Int -> Position
+offsetToPosition txt off =
+    if null ls
+       then Position 0 0
+       else Position (length ls - 1) (T.length (last ls))
+  where ls = lines' (T.take off txt)
+
+
 -- adjust a given position to exclude any trailing whitespace
 trimEndPosition :: Position -> Text -> Position
-trimEndPosition (Position line col) text =
-  let ls = T.lines text ++ [""]  -- 'lines' swallows empty last lines
-      ls' = take (line - 1) ls ++ [ T.take col (ls !! line) ]  -- text truncated to position
-      lengths = map (T.length . T.stripEnd) ls'  -- line lengths after dropping trailing whitespace
-      lengths' = dropWhileEnd (== 0) lengths  -- drop empty lines
-      line' = length lengths'
-      col' | null lengths = 0  -- edge case when there aren't any non-whitespace characters
-           | otherwise = last lengths'
-  in Position line' col'
+trimEndPosition pos txt =
+    offsetToPosition txt (T.length . T.stripEnd . T.take off $ txt)
+  where off = positionToOffset txt pos
